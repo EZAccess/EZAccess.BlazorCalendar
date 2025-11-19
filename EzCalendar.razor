@@ -1,3 +1,161 @@
-﻿<div >
-	EZ Access Calendar
+﻿@using System.Text
+
+<div class="ez-calendar month-view">
+	<div class="month-selector-container">
+		<button class="month-selector-button" @onclick="SelectPreviousMonth">
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-left" viewBox="0 0 16 16">
+				<path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0" />
+			</svg>
+		</button>
+		<div class="label-container">
+			<div class="label">
+				@SelectedDate.ToString("MMMM yyyy")
+			</div>
+			<button class="currentday-selector-button" @onclick="() => SelectDate(DateOnly.FromDateTime(DateTime.Now))">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calendar-check" viewBox="0 0 16 16">
+					<path d="M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0" />
+					<path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z" />
+				</svg>
+			</button>
+		</div>
+		<button class="month-selector-button" @onclick="SelectNextMonth">
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-chevron-right" viewBox="0 0 16 16">
+				<path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708" />
+			</svg>
+		</button>
+	</div>
+	<div class="calendar-header">Zondag</div>
+	<div class="calendar-header">Maandag</div>
+	<div class="calendar-header">Dinsdag</div>
+	<div class="calendar-header">Woensdag</div>
+	<div class="calendar-header">Donderdag</div>
+	<div class="calendar-header">Vrijdag</div>
+	<div class="calendar-header">Zaterdag</div>
+	@foreach (var cell in cells)
+	{
+		<div class="@GetCssForCell(cell)" @onclick="() => SelectDate(DateOnly.FromDateTime(cell.Date))" >
+			<div class="date-label-container">
+				<div class="@GetCssForDateLabel(cell)">
+					@cell.Date.Day
+				</div>
+			</div>
+			@foreach (var item in cell.CalendarItems)
+			{
+				<button class="appointment" @onclick="() => OnItemSelected.InvokeAsync(item)">
+					@item.Title
+				</button>
+			}
+		</div>
+	}
 </div>
+
+@code{
+	/// <summary>
+	/// Give a function that takes a startdate and enddate as parameters and returns a Task<IEnumerable<CalendarItem>> to get calendar items for a given date range.
+	/// </summary>
+	[Parameter, EditorRequired] public Func<DateTime, DateTime, Task<IEnumerable<CalendarItem>>>? GetItems { get; set; }
+
+	[Parameter] public EventCallback<CalendarItem> OnItemSelected { get; set; }
+
+	public DateOnly SelectedDate { get; private set; }
+	public DateTime StartDate { get; private set; }
+	public DateTime EndDate { get; private set; }
+	public IEnumerable<CalendarItem>? Items { get; private set; }
+
+	private IEnumerable<CalendarCell> cells = [];
+	private DateTime previousStartDate;
+	private DateTime previousEndDate;
+
+	protected override async Task OnInitializedAsync()
+	{
+		SelectedDate = DateOnly.FromDateTime(DateTime.Now);
+		await ApplySelection();
+		await base.OnInitializedAsync();
+	}
+
+	private async Task ApplySelection(bool forceReload = false)
+	{
+		var monthLabel = SelectedDate.ToString("MMMM yyyy");
+		SetDateRange(SelectedDate);
+		if (StartDate != previousStartDate || EndDate != previousEndDate || forceReload) {
+			Items = await LoadItemsAsync(StartDate, EndDate);
+			FillCalendarCells();
+		}
+	}
+
+	private async Task<IEnumerable<CalendarItem>> LoadItemsAsync(DateTime from, DateTime to)
+	{
+		if (GetItems is null) return Enumerable.Empty<CalendarItem>();
+		try {
+			var items = await GetItems.Invoke(from, to);
+			return items ?? Enumerable.Empty<CalendarItem>();
+		}
+		catch {
+			// handle or log error
+			return Enumerable.Empty<CalendarItem>();
+		}
+	}
+
+	private void SetDateRange(DateOnly selectedDate)
+	{
+		// Set the startdate to the first sunday preceding the first day of the current month
+		var startDate = new DateTime(selectedDate.Year, selectedDate.Month, 1);
+		StartDate = startDate.AddDays(-(int)startDate.DayOfWeek);
+
+		var endDate = new DateTime(selectedDate.Year, selectedDate.Month, DateTime.DaysInMonth(selectedDate.Year, selectedDate.Month));
+		EndDate = endDate.AddDays(6 - (int)endDate.DayOfWeek);
+
+		//var endDate = StartDate.AddDays(42); // 6 weeks
+	}
+
+	private void FillCalendarCells()
+	{
+		cells = [];
+		// create a cell for every day in the date range
+		for (var date = StartDate; date <= EndDate; date = date.AddDays(1))
+		{
+			var cellItems = Items?.Where(i => i.TimeStart.Date <= date.Date && i.TimeEnd.Date >= date.Date).ToArray() ?? Enumerable.Empty<CalendarItem>();
+			cells = cells.Append(new CalendarCell(date, cellItems));
+		}
+		previousStartDate = StartDate;
+		previousEndDate = EndDate;
+	}
+
+	private string GetCssForCell(CalendarCell cell)
+	{
+		StringBuilder css = new("calendar-cell");
+		if (cell.Date.Month == SelectedDate.Month)
+		{
+			css.Append(" selected-month");
+		}
+		return css.ToString();
+	}
+
+	private string GetCssForDateLabel(CalendarCell cell)
+	{
+		StringBuilder css = new("date-label");
+		if (DateOnly.FromDateTime(cell.Date) == DateOnly.FromDateTime(DateTime.Now))
+		{
+			css.Append(" current-date");
+		}
+		return css.ToString();
+	}
+
+	private async Task SelectPreviousMonth()
+	{
+		SelectedDate = SelectedDate.AddMonths(-1);
+		await ApplySelection();
+	}
+
+	private async Task SelectNextMonth()
+	{
+		SelectedDate = SelectedDate.AddMonths(1);
+		await ApplySelection();
+	}
+
+	public async Task SelectDate(DateOnly date)
+	{
+		SelectedDate = date;
+		await ApplySelection();
+	}
+}
