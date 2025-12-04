@@ -42,7 +42,7 @@
 			@foreach (var item in cell.CalendarItems)
 			{
 				<button class="appointment" @onclick="() => OnItemSelected.InvokeAsync(item)">
-					@item.Title
+					<div>@item.Description</div>
 				</button>
 			}
 		</div>
