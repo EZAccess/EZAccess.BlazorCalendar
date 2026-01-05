@@ -134,7 +134,8 @@
 		display: grid;
 		font-size: clamp(0.6rem, 2vw, 1rem);
 		color: rgb(20,20,20);
-		overflow-x: hidden
+		overflow-x: hidden;
+		line-height: 1.2;
 	}
 
 	.ez-calendar .calendar-cell .appointment:hover {

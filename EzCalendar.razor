@@ -42,7 +42,14 @@
 			@foreach (var item in cell.CalendarItems)
 			{
 				<button class="appointment" @onclick="() => OnItemSelected.InvokeAsync(item)">
-					<div>@item.Description</div>
+					@if (ChildContent is not null)
+					{
+						@ChildContent(item)
+					}
+					else
+					{
+						<div>@item.Title</div>
+					}
 				</button>
 			}
 		</div>
@@ -56,6 +63,7 @@
 	[Parameter, EditorRequired] public Func<DateTime, DateTime, Task<IEnumerable<CalendarItem>>>? GetItems { get; set; }
 
 	[Parameter] public EventCallback<CalendarItem> OnItemSelected { get; set; }
+	[Parameter, EditorRequired] public RenderFragment<CalendarItem>? ChildContent { get; set; }
 
 	public DateOnly SelectedDate { get; private set; }
 	public DateTime StartDate { get; private set; }

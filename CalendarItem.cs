@@ -7,4 +7,7 @@ public class CalendarItem
 	public DateTime TimeEnd { get; set; }
 	public string Title { get; set; } = string.Empty;
 	public string Description { get; set; } = string.Empty;
+	public string Text1 { get; set; } = string.Empty;
+	public string Text2 { get; set; } = string.Empty;
+	public string Text3 { get; set; } = string.Empty;
 }
