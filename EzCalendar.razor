@@ -41,7 +41,7 @@
 			</div>
 			@foreach (var item in cell.CalendarItems)
 			{
-				<button class="appointment" @onclick="() => OnItemSelected.InvokeAsync(item)">
+				<button class="@GetCssForAppointment(cell, item)" @onclick="() => OnItemSelected.InvokeAsync(item)">
 					@if (ChildContent is not null)
 					{
 						@ChildContent(item)
@@ -127,6 +127,16 @@
 		}
 		previousStartDate = StartDate;
 		previousEndDate = EndDate;
+	}
+
+	private string GetCssForAppointment(CalendarCell cell, CalendarItem item)
+	{
+		StringBuilder css = new("appointment");
+		if (cell.Date < DateTime.Now.Date)
+		{
+			css.Append(" history");
+		}
+		return css.ToString();
 	}
 
 	private string GetCssForCell(CalendarCell cell)
